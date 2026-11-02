@@ -12,6 +12,7 @@ import (
 type IfaceGithub interface {
 	GetReleaseURL(owner, repo, tag string) string
 	GetReleaseByTag(owner, repo, tag string) (*github.RepositoryRelease, error)
+	GetTagRef(owner, repo, tag string) (*github.Reference, error)
 }
 
 // Client struct
