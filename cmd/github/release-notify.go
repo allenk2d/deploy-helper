@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const noReleaseNotesText = "No release notes found for this tag."
+const noReleaseNotesText = "No release found for this tag. A newer release candidate may have replaced it."
 
 var newGithubClient = func(token string) github.IfaceGithub {
 	return github.New(token)
@@ -82,6 +82,7 @@ func runReleaseNotifyCmd(cmd *cobra.Command, args []string) {
 			sendSlackNotification(text)
 		}
 	} else if err == nil {
+		// 沒有 Release 時 WARN 已寫到 stderr；stdout 只放真正的 release body，避免呼叫端把 fallback 文字當內容
 		fmt.Println(releaseBody)
 	}
 }

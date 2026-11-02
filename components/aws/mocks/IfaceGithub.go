@@ -35,6 +35,20 @@ func (_m *IfaceGithub) GetReleaseByTag(owner string, repo string, tag string) (*
 	return r0, r1
 }
 
+// GetReleaseURL provides a mock function with given fields: owner, repo, tag
+func (_m *IfaceGithub) GetReleaseURL(owner string, repo string, tag string) string {
+	ret := _m.Called(owner, repo, tag)
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func(string, string, string) string); ok {
+		r0 = rf(owner, repo, tag)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // GetTagRef provides a mock function with given fields: owner, repo, tag
 func (_m *IfaceGithub) GetTagRef(owner string, repo string, tag string) (*github.Reference, error) {
 	ret := _m.Called(owner, repo, tag)
@@ -56,18 +70,4 @@ func (_m *IfaceGithub) GetTagRef(owner string, repo string, tag string) (*github
 	}
 
 	return r0, r1
-}
-
-// GetReleaseURL provides a mock function with given fields: owner, repo, tag
-func (_m *IfaceGithub) GetReleaseURL(owner string, repo string, tag string) string {
-	ret := _m.Called(owner, repo, tag)
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func(string, string, string) string); ok {
-		r0 = rf(owner, repo, tag)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	return r0
 }

@@ -32,8 +32,17 @@ func setupReleaseNotify(t *testing.T, release *gogithub.RepositoryRelease, err e
 	client.On("GetReleaseURL", testOwner, testRepo, testTag).Return(testReleaseURL)
 
 	origFactory := newGithubClient
-	newGithubClient = func(token string) github.IfaceGithub { return client }
+	origOwner, origRepo, origTag := inputOwner, inputRepo, inputTag
+	origProject, origDomain := inputProject, inputDomain
+	origSlackWebhook, origSlackChannel, origDryRun := inputSlackWebhook, inputSlackChannel, dryRun
+	t.Cleanup(func() {
+		newGithubClient = origFactory
+		inputOwner, inputRepo, inputTag = origOwner, origRepo, origTag
+		inputProject, inputDomain = origProject, origDomain
+		inputSlackWebhook, inputSlackChannel, dryRun = origSlackWebhook, origSlackChannel, origDryRun
+	})
 
+	newGithubClient = func(token string) github.IfaceGithub { return client }
 	inputOwner, inputRepo, inputTag = testOwner, testRepo, testTag
 	inputProject, inputDomain = "", "api.kkday.com"
 	inputSlackWebhook, inputSlackChannel = "", ""
@@ -42,7 +51,6 @@ func setupReleaseNotify(t *testing.T, release *gogithub.RepositoryRelease, err e
 	}
 	dryRun = true
 
-	t.Cleanup(func() { newGithubClient = origFactory })
 	return client
 }
 
@@ -68,7 +76,7 @@ func TestReleaseNotifyWithRelease(t *testing.T) {
 		HTMLURL: gogithub.String("https://github.com/kkday-it/kkday-b2c-api/releases/tag/v2.55.0-rc.2"),
 		Body:    gogithub.String("- fix something"),
 	}
-	setupReleaseNotify(t, release, nil, nil, true)
+	client := setupReleaseNotify(t, release, nil, nil, true)
 
 	stdout, stderr := captureOutput(t, func() { runReleaseNotifyCmd(nil, nil) })
 
@@ -76,6 +84,8 @@ func TestReleaseNotifyWithRelease(t *testing.T) {
 		"<https://github.com/kkday-it/kkday-b2c-api/releases/tag/v2.55.0-rc.2|Click here> for details! \n\n- fix something\n"
 	assert.Equal(t, expected, stdout)
 	assert.Equal(t, "", stderr)
+	// 有 Release 的正常部署不該多打 tag ref API
+	client.AssertNotCalled(t, "GetTagRef", testOwner, testRepo, testTag)
 }
 
 func TestReleaseNotifyReleaseNotFound(t *testing.T) {
@@ -84,7 +94,7 @@ func TestReleaseNotifyReleaseNotFound(t *testing.T) {
 	stdout, stderr := captureOutput(t, func() { runReleaseNotifyCmd(nil, nil) })
 
 	expected := "kkday-b2c-api deployment successful. \nProject: kkday-b2c-api \nVersion: v2.55.0-rc.2 \nDomain: api.kkday.com \n" +
-		"<" + testReleaseURL + "|Click here> for details! \n\n" + noReleaseNotesText + "\n"
+		"<" + testReleaseURL + "|Click here> for details! \n\nNo release found for this tag. A newer release candidate may have replaced it.\n"
 	assert.Equal(t, expected, stdout)
 	assert.True(t, strings.HasPrefix(stderr, "WARN: release not found for tag v2.55.0-rc.2"), stderr)
 }
