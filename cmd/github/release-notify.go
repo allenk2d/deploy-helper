@@ -3,10 +3,19 @@ package github
 import (
 	"deploy-helper/components/aws/github"
 	"fmt"
+	"net/http"
+	"os"
 
+	gogithub "github.com/google/go-github/github"
 	"github.com/nlopes/slack"
 	"github.com/spf13/cobra"
 )
+
+const noReleaseNotesText = "No release found for this tag. A newer release candidate may have replaced it."
+
+var newGithubClient = func(token string) github.IfaceGithub {
+	return github.New(token)
+}
 
 func newReleaseNotifyCmd() *cobra.Command {
 	command := &cobra.Command{
@@ -31,11 +40,23 @@ func newReleaseNotifyCmd() *cobra.Command {
 }
 
 func runReleaseNotifyCmd(cmd *cobra.Command, args []string) {
-	githubClient := github.New(inputToken)
+	githubClient := newGithubClient(inputToken)
 	repoRelease, err := githubClient.GetReleaseByTag(inputOwner, inputRepo, inputTag)
+	releaseURL := repoRelease.GetHTMLURL()
+	releaseBody := repoRelease.GetBody()
 
 	if err != nil {
-		panic(err)
+		if !isNotFound(err) {
+			panic(err)
+		}
+		// token 讀不到 private repo 時 GitHub 也回 404；tag 查得到才能確定只是沒有 Release
+		if _, refErr := githubClient.GetTagRef(inputOwner, inputRepo, inputTag); refErr != nil {
+			panic(fmt.Errorf("%v (tag ref check: %v)", err, refErr))
+		}
+		// 通知在部署成功後才跑；tag 沒有對應 Release 只是少了 release notes，不該讓 build 變 FAILURE
+		fmt.Fprintf(os.Stderr, "WARN: release not found for tag %s, notify without release notes: %v\n", inputTag, err)
+		releaseURL = githubClient.GetReleaseURL(inputOwner, inputRepo, inputTag)
+		releaseBody = noReleaseNotesText
 	}
 
 	if inputSlackChannel != "" && inputSlackWebhook != "" {
@@ -51,8 +72,8 @@ func runReleaseNotifyCmd(cmd *cobra.Command, args []string) {
 			inputProject,
 			inputTag,
 			inputDomain,
-			repoRelease.GetHTMLURL(),
-			repoRelease.GetBody(),
+			releaseURL,
+			releaseBody,
 		)
 
 		if dryRun {
@@ -60,9 +81,15 @@ func runReleaseNotifyCmd(cmd *cobra.Command, args []string) {
 		} else {
 			sendSlackNotification(text)
 		}
-	} else {
-		fmt.Println(repoRelease.GetBody())
+	} else if err == nil {
+		// 沒有 Release 時 WARN 已寫到 stderr；stdout 只放真正的 release body，避免呼叫端把 fallback 文字當內容
+		fmt.Println(releaseBody)
 	}
+}
+
+func isNotFound(err error) bool {
+	errResp, ok := err.(*gogithub.ErrorResponse)
+	return ok && errResp.Response != nil && errResp.Response.StatusCode == http.StatusNotFound
 }
 
 func sendSlackNotification(text string) {

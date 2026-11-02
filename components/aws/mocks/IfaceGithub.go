@@ -48,3 +48,26 @@ func (_m *IfaceGithub) GetReleaseURL(owner string, repo string, tag string) stri
 
 	return r0
 }
+
+// GetTagRef provides a mock function with given fields: owner, repo, tag
+func (_m *IfaceGithub) GetTagRef(owner string, repo string, tag string) (*github.Reference, error) {
+	ret := _m.Called(owner, repo, tag)
+
+	var r0 *github.Reference
+	if rf, ok := ret.Get(0).(func(string, string, string) *github.Reference); ok {
+		r0 = rf(owner, repo, tag)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*github.Reference)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, string, string) error); ok {
+		r1 = rf(owner, repo, tag)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
